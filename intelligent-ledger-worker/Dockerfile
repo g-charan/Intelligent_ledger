@@ -8,8 +8,9 @@ COPY requirements.txt .
 # Install production dependencies directly into the system layer inside the container isolation bubble
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the runtime worker code execution artifact
+# Copy your live script AND your new high-power trained ML model binary into the container image
 COPY worker.py .
+COPY model.joblib .
 
-# Forces Python to output print statements directly to the Docker logs without internal buffering
+# Forces Python to output print logs direct to your stdout console terminal without buffering
 CMD ["python", "-u", "worker.py"]

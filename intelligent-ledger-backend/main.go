@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/segmentio/kafka-go"
 )
 
 type TransactionStatus string
@@ -108,7 +111,22 @@ func handleIngest(c *gin.Context) {
 		return
 	}
 
-	// Next step: Broadcast this exact tx.ID and raw_text out to Kafka for our Python ML workers!
+	// Broadcast this exact tx.ID and raw_text out to Kafka for our Python ML workers
+	event := TransactionEvent{
+		TransactionID: tx.ID.String(),
+		RawText:       tx.RawText,
+		Amount:        tx.Amount,
+	}
+	
+	eventBytes, _ := json.Marshal(event)
+	err = KafkaWriter.WriteMessages(ctx, kafka.Message{
+		Value: eventBytes,
+	})
+	if err != nil {
+		// Log Kafka errors but don't fail the response — database write succeeded
+		fmt.Printf("[KAFKA ERROR] Failed to publish transaction event: %v\n", err)
+	}
+
 	c.JSON(http.StatusAccepted, gin.H{
 		"status":      "stored_and_pending",
 		"transaction": tx,

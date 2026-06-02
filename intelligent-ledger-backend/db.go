@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,6 +21,14 @@ func InitDB() {
 	connString := os.Getenv("DATABASE_URL")
 	if connString == "" {
 		log.Fatal("DATABASE_URL environment variable is empty or not set")
+	}
+
+	// Disable prepared statement caching for Supabase pooler compatibility
+	// Use 'options' to pass PostgreSQL parameters to disable prepared statement caching
+	if !strings.Contains(connString, "?") {
+		connString = connString + "?options=-c%20statement_cache_mode%3Ddescribe"
+	} else {
+		connString = connString + "&options=-c%20statement_cache_mode%3Ddescribe"
 	}
 
 	// Retry configuration for connection establishment
@@ -36,6 +46,9 @@ func InitDB() {
 			}
 			log.Fatalf("CRITICAL: Failed to parse database connection after %d attempts: %v", maxRetries, err)
 		}
+
+		// Disable prepared statement caching at the pgx level to work with Supabase pooler
+		config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 		// Enterprise Tuning parameters
 		config.MaxConns = 25                      // Maximum number of active connections
